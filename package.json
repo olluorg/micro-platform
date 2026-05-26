@@ -1,0 +1,20 @@
+{
+  "name": "@ollu/micro-platform",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Sync SDK and server for offline-first apps.",
+  "license": "MIT",
+  "packageManager": "pnpm@11.3.0",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "build": "pnpm -r --filter './packages/**' run build",
+    "typecheck": "pnpm -r --filter './packages/**' run typecheck",
+    "lint": "pnpm -r --filter './packages/**' run lint",
+    "test": "pnpm -r --filter './packages/**' run test"
+  },
+  "devDependencies": {
+    "typescript": "^5.6.3"
+  }
+}

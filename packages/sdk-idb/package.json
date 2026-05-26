@@ -1,0 +1,19 @@
+{
+  "name": "@ollu/sdk-idb",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Transparent IndexedDB proxy adapter. Patches window.indexedDB to capture writes into the SDK outbox.",
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@ollu/sdk-core": "workspace:*",
+    "@ollu/shared-types": "workspace:*"
+  }
+}

@@ -1,0 +1,47 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/ollu-server",
+    "crates/ollu-core",
+    "crates/ollu-storage",
+    "crates/ollu-sync",
+    "crates/ollu-auth",
+    "crates/ollu-functions",
+]
+
+[workspace.package]
+version = "0.0.0"
+edition = "2021"
+license = "MIT"
+publish = false
+
+[workspace.dependencies]
+axum = "0.7"
+tokio = { version = "1", features = ["full"] }
+tokio-stream = "0.1"
+futures = "0.3"
+sqlx = { version = "0.8", default-features = false, features = ["sqlite", "runtime-tokio", "macros", "migrate"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+ciborium = "0.2"
+jsonwebtoken = "9"
+reqwest = { version = "0.12", default-features = false, features = ["rustls-tls", "json"] }
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+tower = "0.5"
+tower-http = { version = "0.6", features = ["trace", "cors"] }
+thiserror = "1"
+anyhow = "1"
+uuid = { version = "1", features = ["v4", "v7", "serde"] }
+async-trait = "0.1"
+ollu-core = { path = "crates/ollu-core" }
+ollu-storage = { path = "crates/ollu-storage" }
+ollu-sync = { path = "crates/ollu-sync" }
+ollu-auth = { path = "crates/ollu-auth" }
+ollu-functions = { path = "crates/ollu-functions" }
+
+[profile.release]
+opt-level = 3
+lto = "thin"
+codegen-units = 1
+strip = true
