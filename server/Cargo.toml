@@ -18,7 +18,7 @@ publish = false
 [workspace.dependencies]
 axum = "0.7"
 tokio = { version = "1", features = ["full"] }
-tokio-stream = "0.1"
+tokio-stream = { version = "0.1", features = ["sync"] }
 futures = "0.3"
 sqlx = { version = "0.8", default-features = false, features = ["sqlite", "runtime-tokio", "macros", "migrate"] }
 serde = { version = "1", features = ["derive"] }
@@ -34,6 +34,11 @@ thiserror = "1"
 anyhow = "1"
 uuid = { version = "1", features = ["v4", "v7", "serde"] }
 async-trait = "0.1"
+base64 = "0.22"
+sha2 = "0.10"
+rand = "0.8"
+parking_lot = "0.12"
+time = { version = "0.3", features = ["serde"] }
 ollu-core = { path = "crates/ollu-core" }
 ollu-storage = { path = "crates/ollu-storage" }
 ollu-sync = { path = "crates/ollu-sync" }

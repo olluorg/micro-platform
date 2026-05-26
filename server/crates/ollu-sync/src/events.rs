@@ -1,11 +1,13 @@
 use std::sync::Arc;
 
 use ollu_core::{AppId, UserId};
+use serde::Serialize;
 use tokio::sync::broadcast;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
 pub struct Hint {
     pub user: UserId,
+    #[serde(rename = "appId")]
     pub app: AppId,
 }
 

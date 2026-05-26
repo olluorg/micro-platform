@@ -1052,10 +1052,11 @@ name = "ollu-auth"
 version = "0.0.0"
 dependencies = [
  "async-trait",
- "axum",
+ "base64",
  "jsonwebtoken",
  "ollu-core",
  "ollu-storage",
+ "rand 0.8.6",
  "reqwest",
  "serde",
  "serde_json",
@@ -1079,7 +1080,6 @@ dependencies = [
 name = "ollu-functions"
 version = "0.0.0"
 dependencies = [
- "axum",
  "serde",
  "serde_json",
  "tracing",
@@ -1090,14 +1090,19 @@ name = "ollu-server"
 version = "0.0.0"
 dependencies = [
  "anyhow",
+ "async-trait",
  "axum",
+ "futures",
  "ollu-auth",
  "ollu-core",
  "ollu-functions",
  "ollu-storage",
  "ollu-sync",
  "serde",
+ "serde_json",
+ "thiserror 1.0.69",
  "tokio",
+ "tokio-stream",
  "tower",
  "tower-http",
  "tracing",
@@ -1109,21 +1114,21 @@ name = "ollu-storage"
 version = "0.0.0"
 dependencies = [
  "async-trait",
+ "base64",
  "ollu-core",
  "serde",
  "serde_json",
+ "sha2",
  "sqlx",
  "thiserror 1.0.69",
  "tracing",
+ "uuid",
 ]
 
 [[package]]
 name = "ollu-sync"
 version = "0.0.0"
 dependencies = [
- "anyhow",
- "async-trait",
- "axum",
  "futures",
  "ollu-core",
  "ollu-storage",
@@ -2152,6 +2157,20 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "32da49809aab5c3bc678af03902d4ccddea2a87d028d86392a4b1560c6906c70"
 dependencies = [
  "futures-core",
+ "pin-project-lite",
+ "tokio",
+ "tokio-util",
+]
+
+[[package]]
+name = "tokio-util"
+version = "0.7.18"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9ae9cec805b01e8fc3fd2fe289f89149a9b66dd16786abd8b19cfa7b48cb0098"
+dependencies = [
+ "bytes",
+ "futures-core",
+ "futures-sink",
  "pin-project-lite",
  "tokio",
 ]

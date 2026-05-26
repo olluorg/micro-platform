@@ -1,12 +1,22 @@
+import type { HLClock } from "@ollu/sdk-core";
 import type { Operation } from "@ollu/shared-types";
 
-export interface SyncedStoreConfig {
-  readonly name: string;
-  readonly sync: boolean;
+export interface IdbProxyOptions {
+  /** Database name the SDK will intercept. Other databases pass through untouched. */
+  readonly dbName: string;
+  readonly appId: string;
+  readonly syncedStores: readonly string[];
+  readonly clock: HLClock;
+  /** Called after a local write enqueues an op. */
+  readonly onLocalWrite?: () => void;
 }
 
-export interface IdbProxyOptions {
-  readonly appId: string;
-  readonly stores: readonly SyncedStoreConfig[];
-  readonly onChange: (op: Operation) => void | Promise<void>;
+export interface IdbProxy {
+  readonly outbox: import("@ollu/sdk-core").Outbox;
+  readonly kv: import("@ollu/sdk-core").KvStore;
+  /** Apply ops received from sync. Does not re-enqueue them in the outbox. */
+  applyIncoming(ops: readonly Operation[]): Promise<void>;
+  /** Wait until the app has opened the patched IndexedDB database. */
+  ready(): Promise<void>;
+  uninstall(): void;
 }
