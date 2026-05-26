@@ -58,11 +58,22 @@ export function installIdbProxy(options: IdbProxyOptions): IdbProxy {
     outbox: new IdbOutbox(getDb),
     kv: new IdbKvStore(getDb),
     applyIncoming,
+    withSuppressedCapture,
     createSnapshot,
     restoreSnapshot,
     ready: () => dbReady.then(() => undefined),
     uninstall,
   };
+}
+
+async function withSuppressedCapture<T>(fn: () => Promise<T>): Promise<T> {
+  const prev = suppressCapture;
+  suppressCapture = true;
+  try {
+    return await fn();
+  } finally {
+    suppressCapture = prev;
+  }
 }
 
 function uninstall(): void {
