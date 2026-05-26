@@ -34,11 +34,29 @@ jobs:
           REPO: ${{ github.repository }}
         run: ./scripts/release.sh "${{ steps.ver.outputs.version }}"
 
+      - name: Write release notes
+        env:
+          TAG: ${{ github.ref_name }}
+          REPO: ${{ github.repository }}
+          VERSION: ${{ steps.ver.outputs.version }}
+        run: |
+          cat > release-notes.md <<EOF
+          Auto-generated release ${TAG}. Install in a consumer with:
+
+          \`\`\`
+          bun add https://github.com/${REPO}/releases/download/${TAG}/ollu-shared-types-${VERSION}.tgz
+          bun add https://github.com/${REPO}/releases/download/${TAG}/ollu-sdk-core-${VERSION}.tgz
+          bun add https://github.com/${REPO}/releases/download/${TAG}/ollu-sdk-idb-${VERSION}.tgz
+          bun add https://github.com/${REPO}/releases/download/${TAG}/ollu-sdk-backup-gdrive-${VERSION}.tgz
+          \`\`\`
+          EOF
+
       - name: Create GitHub Release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ github.ref_name }}
         run: |
-          gh release create "${{ github.ref_name }}" \
+          gh release create "${TAG}" \
             dist-release/*.tgz \
-            --title "${{ github.ref_name }}" \
-            --notes "Auto-generated release ${{ github.ref_name }}. Install in a consumer with:
+            --title "${TAG}" \
+            --notes-file release-notes.md
