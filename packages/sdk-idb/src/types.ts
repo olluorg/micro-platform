@@ -16,6 +16,10 @@ export interface IdbProxy {
   readonly kv: import("@ollu/sdk-core").KvStore;
   /** Apply ops received from sync. Does not re-enqueue them in the outbox. */
   applyIncoming(ops: readonly Operation[]): Promise<void>;
+  /** Serialize the current local state (synced stores + KV) into a CBOR snapshot. */
+  createSnapshot(): Promise<Uint8Array>;
+  /** Apply a CBOR snapshot via LWW merge (does not generate outbox ops). */
+  restoreSnapshot(data: Uint8Array): Promise<void>;
   /** Wait until the app has opened the patched IndexedDB database. */
   ready(): Promise<void>;
   uninstall(): void;

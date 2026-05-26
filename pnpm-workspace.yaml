@@ -1,3 +1,9 @@
 packages:
   - "packages/*"
   - "examples/*"
+
+# cbor-extract is an optional native add-on used by cbor-x for faster
+# encoding/decoding in Node. We use cbor-x in browser only — the pure-JS
+# fallback is sufficient, so we don't build the native module.
+allowBuilds:
+  cbor-extract: false

@@ -1,5 +1,13 @@
 import type { Operation, OpType } from "@ollu/shared-types";
-import { hlcToString } from "@ollu/sdk-core";
+import {
+  decodeSnapshot,
+  encodeSnapshot,
+  hlcToString,
+  SNAPSHOT_FORMAT_VERSION,
+  type Snapshot,
+  type SnapshotRecord,
+  type SnapshotStore,
+} from "@ollu/sdk-core";
 import { idbReq, idbTx, INTERNAL_STORES } from "./idb-utils.js";
 import { IdbKvStore } from "./kv.js";
 import { IdbOutbox } from "./outbox.js";
@@ -50,6 +58,8 @@ export function installIdbProxy(options: IdbProxyOptions): IdbProxy {
     outbox: new IdbOutbox(getDb),
     kv: new IdbKvStore(getDb),
     applyIncoming,
+    createSnapshot,
+    restoreSnapshot,
     ready: () => dbReady.then(() => undefined),
     uninstall,
   };
@@ -288,6 +298,120 @@ function generateOpId(): string {
   let hex = "";
   for (const b of bytes) hex += b.toString(16).padStart(2, "0");
   return `${Date.now().toString(16)}-${hex}`;
+}
+
+async function createSnapshot(): Promise<Uint8Array> {
+  if (!state) throw new Error("IDB proxy not installed");
+  const db = await state.dbReady;
+  const stores: Record<string, SnapshotStore> = {};
+  const kv: Record<string, unknown> = {};
+
+  const metaTx = state.originalTransaction.call(
+    db,
+    INTERNAL_STORES.meta as never,
+    "readonly" as IDBTransactionMode,
+  );
+  const metaRows = (await idbReq(
+    metaTx.objectStore(INTERNAL_STORES.meta).getAll(),
+  )) as Array<{ key: string; hlc: string }>;
+  const hlcByKey = new Map<string, string>();
+  for (const row of metaRows) hlcByKey.set(row.key, row.hlc);
+
+  for (const storeName of state.options.syncedStores) {
+    if (!db.objectStoreNames.contains(storeName)) continue;
+    const records: SnapshotRecord[] = [];
+    const tx = state.originalTransaction.call(
+      db,
+      storeName as never,
+      "readonly" as IDBTransactionMode,
+    );
+    const objectStore = tx.objectStore(storeName);
+    await new Promise<void>((resolve, reject) => {
+      const cursorReq = objectStore.openCursor();
+      cursorReq.onerror = () => reject(cursorReq.error);
+      cursorReq.onsuccess = () => {
+        const cursor = cursorReq.result;
+        if (!cursor) {
+          resolve();
+          return;
+        }
+        const pk = keyToString(cursor.key as IDBValidKey);
+        const hlc = hlcByKey.get(`${storeName}:${pk}`) ?? "";
+        records.push({ pk, value: cursor.value, hlc });
+        cursor.continue();
+      };
+    });
+    stores[storeName] = { records };
+  }
+
+  if (db.objectStoreNames.contains(INTERNAL_STORES.kv)) {
+    const kvTx = state.originalTransaction.call(
+      db,
+      INTERNAL_STORES.kv as never,
+      "readonly" as IDBTransactionMode,
+    );
+    const kvRows = (await idbReq(
+      kvTx.objectStore(INTERNAL_STORES.kv).getAll(),
+    )) as Array<{ key: string; value: unknown }>;
+    for (const row of kvRows) {
+      // Skip sync cursor — restoring it would prevent the sync engine from
+      // refetching from where it actually left off.
+      if (row.key.startsWith("_sync.cursor.")) continue;
+      kv[row.key] = row.value;
+    }
+  }
+
+  const snapshot: Snapshot = {
+    format: SNAPSHOT_FORMAT_VERSION,
+    meta: { appId: state.options.appId, createdAt: Date.now() },
+    stores,
+    kv,
+  };
+  return encodeSnapshot(snapshot);
+}
+
+async function restoreSnapshot(data: Uint8Array): Promise<void> {
+  if (!state) throw new Error("IDB proxy not installed");
+  const snapshot = decodeSnapshot(data);
+  const db = await state.dbReady;
+
+  const ops: Operation[] = [];
+  for (const [storeName, storeData] of Object.entries(snapshot.stores)) {
+    if (!state.options.syncedStores.includes(storeName)) continue;
+    for (const record of storeData.records) {
+      ops.push({
+        id: `snapshot-${storeName}-${record.pk}-${generateOpId()}`,
+        appId: snapshot.meta.appId,
+        store: storeName,
+        pk: record.pk,
+        type: "put",
+        hlc: record.hlc,
+        payload: record.value,
+      });
+    }
+  }
+  if (ops.length > 0) {
+    await applyIncoming(ops);
+  }
+
+  if (db.objectStoreNames.contains(INTERNAL_STORES.kv)) {
+    suppressCapture = true;
+    try {
+      const tx = state.originalTransaction.call(
+        db,
+        INTERNAL_STORES.kv as never,
+        "readwrite" as IDBTransactionMode,
+      );
+      const kvStore = tx.objectStore(INTERNAL_STORES.kv);
+      for (const [key, value] of Object.entries(snapshot.kv)) {
+        if (key.startsWith("_sync.cursor.")) continue;
+        kvStore.put({ key, value });
+      }
+      await idbTx(tx);
+    } finally {
+      suppressCapture = false;
+    }
+  }
 }
 
 async function applyIncoming(ops: readonly Operation[]): Promise<void> {
