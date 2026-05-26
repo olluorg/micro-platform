@@ -1,0 +1,51 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'pnpm'
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Extract version from tag
+        id: ver
+        run: echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+
+      - name: Build release tarballs
+        env:
+          REPO: ${{ github.repository }}
+        run: ./scripts/release.sh "${{ steps.ver.outputs.version }}"
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release create "${{ github.ref_name }}" \
+            dist-release/*.tgz \
+            --title "${{ github.ref_name }}" \
+            --notes "Auto-generated release ${{ github.ref_name }}. Install in a consumer with:
+
+\`\`\`
+bun add https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/ollu-shared-types-${{ steps.ver.outputs.version }}.tgz
+bun add https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/ollu-sdk-core-${{ steps.ver.outputs.version }}.tgz
+bun add https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/ollu-sdk-idb-${{ steps.ver.outputs.version }}.tgz
+bun add https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/ollu-sdk-backup-gdrive-${{ steps.ver.outputs.version }}.tgz
+\`\`\`"
