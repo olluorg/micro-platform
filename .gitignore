@@ -45,3 +45,4 @@ data/
 # Coverage / temp
 coverage/
 tmp/
+dist-pack/
