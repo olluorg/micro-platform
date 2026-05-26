@@ -3,7 +3,7 @@ name: Release
 on:
   push:
     tags:
-      - 'v*'
+      - "v*"
 
 permissions:
   contents: write
@@ -21,7 +21,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-          cache: 'pnpm'
+          cache: "pnpm"
 
       - run: pnpm install --frozen-lockfile
 
@@ -42,10 +42,3 @@ jobs:
             dist-release/*.tgz \
             --title "${{ github.ref_name }}" \
             --notes "Auto-generated release ${{ github.ref_name }}. Install in a consumer with:
-
-\`\`\`
-bun add https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/ollu-shared-types-${{ steps.ver.outputs.version }}.tgz
-bun add https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/ollu-sdk-core-${{ steps.ver.outputs.version }}.tgz
-bun add https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/ollu-sdk-idb-${{ steps.ver.outputs.version }}.tgz
-bun add https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/ollu-sdk-backup-gdrive-${{ steps.ver.outputs.version }}.tgz
-\`\`\`"
