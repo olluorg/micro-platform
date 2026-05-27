@@ -201,7 +201,7 @@ export class WebSocketTransport implements SyncTransport {
           settled = true;
           reject(new Error(`socket closed before open: ${e.code} ${e.reason}`));
         }
-        for (const [id, p] of this.pendingPushes) {
+        for (const p of this.pendingPushes.values()) {
           clearTimeout(p.timer);
           p.reject(new Error("socket closed"));
         }
@@ -306,8 +306,8 @@ export class WebSocketTransport implements SyncTransport {
   }
 
   private gcRecentlySent(now: number): void {
-    for (const [id, ts] of this.recentlySent) {
-      if (now - ts > RECENT_PUSH_TTL_MS) this.recentlySent.delete(id);
+    for (const [opId, ts] of this.recentlySent) {
+      if (now - ts > RECENT_PUSH_TTL_MS) this.recentlySent.delete(opId);
     }
   }
 }
