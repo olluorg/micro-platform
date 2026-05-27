@@ -9,32 +9,40 @@ export interface GoogleAuthProviderOptions {
 }
 
 const AUTH_ENDPOINT = "https://accounts.google.com/o/oauth2/v2/auth";
-const TOKEN_ENDPOINT = "https://oauth2.googleapis.com/token";
 const DEFAULT_SCOPES = ["openid", "email", "profile"];
 
+/**
+ * Google OIDC implicit flow.
+ *
+ * We use `response_type=id_token` so the browser receives the id_token
+ * directly in the redirect URL fragment — no separate token exchange
+ * step, no client_secret required. Google's "Web application" OAuth
+ * client type rejects PKCE+code without a secret, but it does accept
+ * pure id_token responses (this is plain OpenID Connect).
+ *
+ * The id_token is signed by Google and validated server-side via JWKS;
+ * `nonce` ties the token to this specific login attempt so replays
+ * across sessions don't pass validation.
+ */
 export class GoogleAuthProvider implements AuthProvider {
   readonly id = "google";
 
   constructor(private readonly options: GoogleAuthProviderOptions) {}
 
   async startLogin(): Promise<AuthLoginResult> {
-    const verifier = generateRandomString(64);
-    const challenge = await sha256Base64Url(verifier);
     const state = generateRandomString(24);
+    const nonce = generateRandomString(24);
     const scopes = (this.options.scopes ?? DEFAULT_SCOPES).join(" ");
 
     const url = new URL(AUTH_ENDPOINT);
     url.searchParams.set("client_id", this.options.clientId);
     url.searchParams.set("redirect_uri", this.options.redirectUri);
-    url.searchParams.set("response_type", "code");
+    url.searchParams.set("response_type", "id_token");
     url.searchParams.set("scope", scopes);
-    url.searchParams.set("code_challenge", challenge);
-    url.searchParams.set("code_challenge_method", "S256");
     url.searchParams.set("state", state);
-    url.searchParams.set("nonce", generateRandomString(24));
+    url.searchParams.set("nonce", nonce);
 
-    const code = await this.runFlow(url.toString(), state);
-    const idToken = await this.exchangeCode(code, verifier);
+    const idToken = await this.runFlow(url.toString(), state);
     return { provider: this.id, idToken };
   }
 
@@ -47,27 +55,6 @@ export class GoogleAuthProvider implements AuthProvider {
       return new Promise(() => undefined);
     }
     return await runPopupFlow(authUrl, expectedState, this.options.redirectUri);
-  }
-
-  private async exchangeCode(code: string, verifier: string): Promise<string> {
-    const body = new URLSearchParams({
-      grant_type: "authorization_code",
-      client_id: this.options.clientId,
-      code,
-      code_verifier: verifier,
-      redirect_uri: this.options.redirectUri,
-    });
-    const resp = await fetch(TOKEN_ENDPOINT, {
-      method: "POST",
-      headers: { "Content-Type": "application/x-www-form-urlencoded" },
-      body,
-    });
-    if (!resp.ok) {
-      throw new Error(`token exchange failed: ${resp.status} ${await resp.text()}`);
-    }
-    const data = (await resp.json()) as { id_token?: string };
-    if (!data.id_token) throw new Error("id_token missing in token response");
-    return data.id_token;
   }
 }
 
@@ -89,26 +76,30 @@ async function runPopupFlow(
         const href = popup.location.href;
         if (!href.startsWith(redirectUri)) return;
         const url = new URL(href);
-        const code = url.searchParams.get("code");
-        const state = url.searchParams.get("state");
-        const error = url.searchParams.get("error");
+        // id_token responses land in the URL fragment, not the query.
+        const fragment = url.hash.startsWith("#") ? url.hash.slice(1) : url.hash;
+        const params = new URLSearchParams(fragment);
+        const idToken = params.get("id_token");
+        const state = params.get("state");
+        const error = params.get("error");
         clearInterval(timer);
         popup.close();
         if (error) {
-          reject(new Error(`oauth error: ${error}`));
+          const desc = params.get("error_description");
+          reject(new Error(`oauth error: ${error}${desc ? ` (${desc})` : ""}`));
           return;
         }
         if (state !== expectedState) {
           reject(new Error("oauth state mismatch"));
           return;
         }
-        if (!code) {
-          reject(new Error("oauth code missing"));
+        if (!idToken) {
+          reject(new Error("oauth callback missing id_token"));
           return;
         }
-        resolve(code);
+        resolve(idToken);
       } catch {
-        // cross-origin while popup is on accounts.google.com
+        // cross-origin access errors while the popup is on accounts.google.com
       }
     }, 250);
   });
@@ -118,12 +109,6 @@ function generateRandomString(length: number): string {
   const bytes = new Uint8Array(length);
   crypto.getRandomValues(bytes);
   return base64UrlEncode(bytes).slice(0, length);
-}
-
-async function sha256Base64Url(input: string): Promise<string> {
-  const data = new TextEncoder().encode(input);
-  const digest = await crypto.subtle.digest("SHA-256", data);
-  return base64UrlEncode(new Uint8Array(digest));
 }
 
 function base64UrlEncode(bytes: Uint8Array): string {
