@@ -13,36 +13,42 @@ Trigger: push a `server-v*` tag (e.g. `server-v0.1.0`), or run it manually
 git tag server-v0.1.0 && git push origin server-v0.1.0
 ```
 
-## GitHub secrets (repo → Settings → Secrets and variables → Actions)
+## GitHub config (repo → Settings → Secrets and variables → Actions)
 
-| Secret        | Value                                                        |
-| ------------- | ----------------------------------------------------------- |
-| `VPS_HOST`     | VPS IP / hostname                                          |
-| `VPS_USER`     | SSH user (member of the `docker` group)                    |
-| `VPS_PASSWORD` | SSH password for that user                                 |
-| `VPS_PORT`     | SSH port (e.g. `22`)                                        |
+All configuration lives in GitHub — nothing is hand-placed on the VPS. The
+deploy job renders `/opt/ollu/.env` from these on every run.
 
-GHCR auth uses the built-in `GITHUB_TOKEN` — no PAT needed. If the package is
-private, the VPS pulls using that token during the deploy session.
+**Secrets:**
+
+| Secret         | Value                                   |
+| -------------- | --------------------------------------- |
+| `VPS_HOST`     | VPS IP / hostname                       |
+| `VPS_USER`     | SSH user (member of the `docker` group) |
+| `VPS_PASSWORD` | SSH password for that user              |
+| `VPS_PORT`     | SSH port (e.g. `22`)                    |
+
+**Variables:**
+
+| Variable           | Value                                                            |
+| ------------------ | ---------------------------------------------------------------- |
+| `GOOGLE_AUDIENCES` | Comma-separated Google OAuth client_id(s) (public, not a secret) |
+| `RUST_LOG`         | Optional log filter; defaults to `info` if unset                 |
+
+`GOOGLE_AUDIENCES` is a public client_id, so it's a Variable. To keep it as a
+Secret instead, set the secret and change `vars.GOOGLE_AUDIENCES` →
+`secrets.GOOGLE_AUDIENCES` in `deploy.yml`. GHCR auth uses the built-in
+`GITHUB_TOKEN` — no PAT needed.
 
 ## One-time VPS setup
 
 ```bash
-# Docker engine + compose plugin
+# Docker engine + compose plugin — that's the entire host prep.
 curl -fsSL https://get.docker.com | sh
 sudo usermod -aG docker "$USER"   # re-login after this
-
-sudo mkdir -p /opt/ollu
-sudo chown "$USER" /opt/ollu
-
-# Operator-managed env (NOT in git). See deploy/.env.example.
-cat > /opt/ollu/.env <<'EOF'
-GOOGLE_AUDIENCES=your-client-id.apps.googleusercontent.com
-RUST_LOG=info
-EOF
 ```
 
-`compose.yaml` is copied automatically by each deploy; you don't place it by hand.
+`/opt/ollu` is created by the deploy job, `compose.yaml` is copied there, and
+`.env` is rendered from GitHub config — you don't place any files by hand.
 SQLite data lives in the named volume `ollu-data` and survives redeploys.
 
 ## Reverse proxy
@@ -72,12 +78,14 @@ location / {
 
 ## Rollback
 
-Re-deploy any previously built tag without rebuilding — on the VPS:
+Re-run the deploy workflow against an older tag from the Actions UI
+(**Deploy server → Run workflow**, pick the ref), or pin an already-built image
+directly on the VPS:
 
 ```bash
 cd /opt/ollu
-echo "OLLU_IMAGE=ghcr.io/<owner>/ollu-server:server-v0.0.9" > .env.deploy
-docker compose --env-file .env --env-file .env.deploy up -d
+sed -i 's#^OLLU_IMAGE=.*#OLLU_IMAGE=ghcr.io/<owner>/ollu-server:server-v0.0.9#' .env
+docker compose --env-file .env up -d
 ```
 
 ## Health check

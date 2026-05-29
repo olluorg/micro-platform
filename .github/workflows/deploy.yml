@@ -75,20 +75,29 @@ jobs:
           IMAGE: ${{ needs.build.outputs.image }}
           GHCR_USER: ${{ github.actor }}
           GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # App config — single source of truth in GitHub (Variables/Secrets).
+          GOOGLE_AUDIENCES: ${{ vars.GOOGLE_AUDIENCES }}
+          RUST_LOG: ${{ vars.RUST_LOG || 'info' }}
         with:
           host: ${{ secrets.VPS_HOST }}
           username: ${{ secrets.VPS_USER }}
           password: ${{ secrets.VPS_PASSWORD }}
           port: ${{ secrets.VPS_PORT }}
-          envs: IMAGE,GHCR_USER,GHCR_TOKEN
+          envs: IMAGE,GHCR_USER,GHCR_TOKEN,GOOGLE_AUDIENCES,RUST_LOG
           script: |
             set -euo pipefail
+            mkdir -p /opt/ollu
             cd /opt/ollu
-            # Pinned image tag for this deploy (overrides any previous one).
-            echo "OLLU_IMAGE=${IMAGE}" > .env.deploy
+            # Render the compose env file from GitHub config on every deploy.
+            # OLLU_IMAGE is the pinned tag for this run.
+            cat > .env <<EOF
+            OLLU_IMAGE=${IMAGE}
+            GOOGLE_AUDIENCES=${GOOGLE_AUDIENCES}
+            RUST_LOG=${RUST_LOG}
+            EOF
             echo "${GHCR_TOKEN}" | docker login ghcr.io -u "${GHCR_USER}" --password-stdin
-            docker compose --env-file .env --env-file .env.deploy pull
-            docker compose --env-file .env --env-file .env.deploy up -d
+            docker compose --env-file .env pull
+            docker compose --env-file .env up -d
             docker image prune -f
             # Smoke test against the loopback-published port.
             for i in $(seq 1 10); do
