@@ -1,22 +1,22 @@
 # Production compose for the VPS. Lives at /opt/ollu/compose.yaml.
-# OLLU_IMAGE is injected per-deploy via .env.deploy (the pinned GHCR tag);
-# GOOGLE_AUDIENCES / RUST_LOG come from the operator-managed .env.
+# OLLU_IMAGE / GOOGLE_AUDIENCES / RUST_LOG / HOST_PORT come from /opt/ollu/.env,
+# which the deploy workflow renders from GitHub Variables/Secrets each run.
 services:
   ollu-server:
     image: ${OLLU_IMAGE}
     restart: unless-stopped
     environment:
-      # The container listens on all interfaces *inside* the container;
-      # host exposure is restricted to loopback by the port mapping below.
       BIND: 0.0.0.0:8080
       DATABASE_URL: sqlite:///data/ollu.db
       RUST_LOG: ${RUST_LOG:-info}
       GOOGLE_AUDIENCES: ${GOOGLE_AUDIENCES:-}
     ports:
-      # Reverse proxy terminates TLS on the host and forwards here.
-      # Loopback-only — the server is never reachable directly from the internet.
-      # Host port is configurable (HOST_PORT) to avoid clashes on the VPS.
+      # Loopback-only publish, used by the deploy smoke test. The reverse proxy
+      # does NOT use this — it reaches the container by name over the shared
+      # network below (http://ollu-server:8080), so nothing is internet-facing.
       - "127.0.0.1:${HOST_PORT:-8080}:8080"
+    networks:
+      - proxy
     volumes:
       - ollu-data:/data
     healthcheck:
@@ -25,6 +25,12 @@ services:
       timeout: 3s
       retries: 3
       start_period: 10s
+
+# Nginx Proxy Manager's network — proxy by container name on http://ollu-server:8080.
+networks:
+  proxy:
+    external: true
+    name: proxy-manager_default
 
 volumes:
   ollu-data:
