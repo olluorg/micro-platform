@@ -78,12 +78,13 @@ jobs:
           # App config — single source of truth in GitHub (Variables/Secrets).
           GOOGLE_AUDIENCES: ${{ vars.GOOGLE_AUDIENCES }}
           RUST_LOG: ${{ vars.RUST_LOG || 'info' }}
+          HOST_PORT: ${{ vars.HOST_PORT || '8080' }}
         with:
           host: ${{ secrets.VPS_HOST }}
           username: ${{ secrets.VPS_USER }}
           password: ${{ secrets.VPS_PASSWORD }}
           port: ${{ secrets.VPS_PORT }}
-          envs: IMAGE,GHCR_USER,GHCR_TOKEN,GOOGLE_AUDIENCES,RUST_LOG
+          envs: IMAGE,GHCR_USER,GHCR_TOKEN,GOOGLE_AUDIENCES,RUST_LOG,HOST_PORT
           script: |
             set -euo pipefail
             mkdir -p /opt/ollu
@@ -94,6 +95,7 @@ jobs:
             OLLU_IMAGE=${IMAGE}
             GOOGLE_AUDIENCES=${GOOGLE_AUDIENCES}
             RUST_LOG=${RUST_LOG}
+            HOST_PORT=${HOST_PORT}
             EOF
             echo "${GHCR_TOKEN}" | docker login ghcr.io -u "${GHCR_USER}" --password-stdin
             docker compose --env-file .env pull
@@ -101,7 +103,7 @@ jobs:
             docker image prune -f
             # Smoke test against the loopback-published port.
             for i in $(seq 1 10); do
-              if curl -fsS http://127.0.0.1:8080/healthz; then echo " OK"; exit 0; fi
+              if curl -fsS "http://127.0.0.1:${HOST_PORT}/healthz"; then echo " OK"; exit 0; fi
               sleep 2
             done
             echo "healthz did not come up" >&2

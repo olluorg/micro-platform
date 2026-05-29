@@ -15,7 +15,8 @@ services:
     ports:
       # Reverse proxy terminates TLS on the host and forwards here.
       # Loopback-only — the server is never reachable directly from the internet.
-      - "127.0.0.1:8080:8080"
+      # Host port is configurable (HOST_PORT) to avoid clashes on the VPS.
+      - "127.0.0.1:${HOST_PORT:-8080}:8080"
     volumes:
       - ollu-data:/data
     healthcheck:

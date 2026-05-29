@@ -33,6 +33,7 @@ deploy job renders `/opt/ollu/.env` from these on every run.
 | ------------------ | ---------------------------------------------------------------- |
 | `GOOGLE_AUDIENCES` | Comma-separated Google OAuth client_id(s) (public, not a secret) |
 | `RUST_LOG`         | Optional log filter; defaults to `info` if unset                 |
+| `HOST_PORT`        | Optional loopback port published on the VPS; defaults to `8080`. Point the reverse proxy at this port. |
 
 `GOOGLE_AUDIENCES` is a public client_id, so it's a Variable. To keep it as a
 Secret instead, set the secret and change `vars.GOOGLE_AUDIENCES` →
