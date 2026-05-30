@@ -1089,8 +1089,10 @@ dependencies = [
 name = "ollu-functions"
 version = "0.0.0"
 dependencies = [
+ "reqwest",
  "serde",
  "serde_json",
+ "thiserror 1.0.69",
  "tracing",
 ]
 
@@ -1107,6 +1109,7 @@ dependencies = [
  "ollu-functions",
  "ollu-storage",
  "ollu-sync",
+ "reqwest",
  "serde",
  "serde_json",
  "thiserror 1.0.69",

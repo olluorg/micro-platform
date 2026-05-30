@@ -10,6 +10,11 @@ services:
       DATABASE_URL: sqlite:///data/ollu.db
       RUST_LOG: ${RUST_LOG:-info}
       GOOGLE_AUDIENCES: ${GOOGLE_AUDIENCES:-}
+      # LLM proxy (/functions/llm) — callers bring their own key, so these are
+      # just optional defaults. Leave empty to use the OpenRouter defaults.
+      OPENROUTER_BASE_URL: ${OPENROUTER_BASE_URL:-}
+      OPENROUTER_MODEL: ${OPENROUTER_MODEL:-}
+      OPENROUTER_REFERER: ${OPENROUTER_REFERER:-}
     ports:
       # Loopback-only publish, used by the deploy smoke test. The reverse proxy
       # does NOT use this — it reaches the container by name over the shared

@@ -79,12 +79,16 @@ jobs:
           GOOGLE_AUDIENCES: ${{ vars.GOOGLE_AUDIENCES }}
           RUST_LOG: ${{ vars.RUST_LOG || 'info' }}
           HOST_PORT: ${{ vars.HOST_PORT || '8080' }}
+          # Optional LLM-proxy defaults (callers bring their own key).
+          OPENROUTER_BASE_URL: ${{ vars.OPENROUTER_BASE_URL }}
+          OPENROUTER_MODEL: ${{ vars.OPENROUTER_MODEL }}
+          OPENROUTER_REFERER: ${{ vars.OPENROUTER_REFERER }}
         with:
           host: ${{ secrets.VPS_HOST }}
           username: ${{ secrets.VPS_USER }}
           password: ${{ secrets.VPS_PASSWORD }}
           port: ${{ secrets.VPS_PORT }}
-          envs: IMAGE,GHCR_USER,GHCR_TOKEN,GOOGLE_AUDIENCES,RUST_LOG,HOST_PORT
+          envs: IMAGE,GHCR_USER,GHCR_TOKEN,GOOGLE_AUDIENCES,RUST_LOG,HOST_PORT,OPENROUTER_BASE_URL,OPENROUTER_MODEL,OPENROUTER_REFERER
           script: |
             set -euo pipefail
             mkdir -p /opt/ollu
@@ -96,6 +100,9 @@ jobs:
             GOOGLE_AUDIENCES=${GOOGLE_AUDIENCES}
             RUST_LOG=${RUST_LOG}
             HOST_PORT=${HOST_PORT}
+            OPENROUTER_BASE_URL=${OPENROUTER_BASE_URL}
+            OPENROUTER_MODEL=${OPENROUTER_MODEL}
+            OPENROUTER_REFERER=${OPENROUTER_REFERER}
             EOF
             echo "${GHCR_TOKEN}" | docker login ghcr.io -u "${GHCR_USER}" --password-stdin
             docker compose --env-file .env pull

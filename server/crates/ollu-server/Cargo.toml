@@ -16,6 +16,7 @@ ollu-sync.workspace = true
 ollu-auth.workspace = true
 ollu-functions.workspace = true
 axum.workspace = true
+reqwest.workspace = true
 tokio.workspace = true
 tokio-stream.workspace = true
 futures.workspace = true

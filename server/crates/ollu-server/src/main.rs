@@ -47,16 +47,24 @@ async fn main() -> Result<()> {
         );
     }
 
+    let http = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(60))
+        .build()?;
+    let llm = Arc::new(ollu_functions::LlmConfig::from_env());
+
     let state = AppState {
         storage,
         bus: EventBus::default(),
         providers: AuthProviders(Arc::new(providers)),
+        http,
+        llm,
     };
 
     let app = Router::new()
         .merge(routes::root::router())
         .nest("/auth", routes::auth::router())
         .nest("/sync", routes::sync::router())
+        .nest("/functions", routes::functions::router())
         .layer(CorsLayer::permissive())
         .layer(TraceLayer::new_for_http())
         .with_state(state);

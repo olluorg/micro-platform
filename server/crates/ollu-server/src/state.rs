@@ -13,6 +13,8 @@ pub struct AppState {
     pub storage: Storage,
     pub bus: EventBus,
     pub providers: AuthProviders,
+    pub http: reqwest::Client,
+    pub llm: Arc<ollu_functions::LlmConfig>,
 }
 
 impl FromRef<AppState> for Storage {
@@ -30,5 +32,17 @@ impl FromRef<AppState> for EventBus {
 impl FromRef<AppState> for AuthProviders {
     fn from_ref(state: &AppState) -> Self {
         state.providers.clone()
+    }
+}
+
+impl FromRef<AppState> for reqwest::Client {
+    fn from_ref(state: &AppState) -> Self {
+        state.http.clone()
+    }
+}
+
+impl FromRef<AppState> for Arc<ollu_functions::LlmConfig> {
+    fn from_ref(state: &AppState) -> Self {
+        state.llm.clone()
     }
 }
