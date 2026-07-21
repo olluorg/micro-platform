@@ -15,6 +15,9 @@ services:
       OPENROUTER_BASE_URL: ${OPENROUTER_BASE_URL:-}
       OPENROUTER_MODEL: ${OPENROUTER_MODEL:-}
       OPENROUTER_REFERER: ${OPENROUTER_REFERER:-}
+      # Comma-separated hosts a client may target via X-Provider-Base-Url.
+      # Empty = allow any (open forward proxy). Set in untrusted deployments.
+      LLM_ALLOWED_BASE_URLS: ${LLM_ALLOWED_BASE_URLS:-}
     ports:
       # Loopback-only publish, used by the deploy smoke test. The reverse proxy
       # does NOT use this — it reaches the container by name over the shared

@@ -33,6 +33,9 @@ pub struct LlmConfig {
     pub server_key: Option<String>,
     /// Whether a request without a provider key may fall back to `server_key`.
     pub allow_server_key: bool,
+    /// Hosts a client-supplied base URL may target. Empty = allow any (the
+    /// endpoint becomes an open forward proxy — set this in untrusted deploys).
+    pub allowed_base_urls: Vec<String>,
     /// Reject requests whose message contents exceed this many chars in total.
     pub max_chars: usize,
 }
@@ -52,6 +55,13 @@ impl LlmConfig {
             title: non_empty("OPENROUTER_TITLE").unwrap_or_else(|| DEFAULT_TITLE.into()),
             allow_server_key: matches!(non_empty("LLM_ALLOW_SERVER_KEY").as_deref(), Some("1" | "true")),
             server_key: non_empty("OPENROUTER_API_KEY"),
+            allowed_base_urls: env::var("LLM_ALLOWED_BASE_URLS")
+                .unwrap_or_default()
+                .split(',')
+                .map(str::trim)
+                .filter(|s| !s.is_empty())
+                .map(String::from)
+                .collect(),
             max_chars: DEFAULT_MAX_CHARS,
         }
     }
@@ -62,6 +72,38 @@ impl LlmConfig {
             None => format!("{}/chat/completions", self.base_url.trim_end_matches('/')),
         }
     }
+
+    fn base_url_allowed(&self, base: &str) -> bool {
+        self.allowed_base_urls.is_empty()
+            || self
+                .allowed_base_urls
+                .iter()
+                .any(|a| host_of(a) == host_of(base))
+    }
+
+    /// Pick the completions URL: a client-supplied base URL (validated against
+    /// the allowlist) wins; otherwise the server default. Appends
+    /// `/chat/completions` to a base URL.
+    fn resolve_completions_url(&self, override_base: Option<&str>) -> Result<String, LlmError> {
+        match override_base.map(str::trim).filter(|s| !s.is_empty()) {
+            Some(base) => {
+                if !self.base_url_allowed(base) {
+                    return Err(LlmError::ForbiddenBaseUrl);
+                }
+                Ok(format!("{}/chat/completions", base.trim_end_matches('/')))
+            }
+            None => Ok(self.completions_url()),
+        }
+    }
+}
+
+/// Lowercased host of a URL (or the trimmed string itself if it doesn't parse),
+/// used for allowlist comparison so entries may be full URLs or bare hosts.
+fn host_of(s: &str) -> String {
+    reqwest::Url::parse(s)
+        .ok()
+        .and_then(|u| u.host_str().map(str::to_ascii_lowercase))
+        .unwrap_or_else(|| s.trim().to_ascii_lowercase())
 }
 
 /// Incoming chat-completion request. OpenAI-shaped; unknown fields (temperature,
@@ -94,6 +136,8 @@ pub struct LlmOutcome {
 pub enum LlmError {
     #[error("missing provider API key")]
     MissingKey,
+    #[error("provider base URL is not allowed")]
+    ForbiddenBaseUrl,
     #[error("messages must not be empty")]
     NoMessages,
     #[error("messages too large")]
@@ -110,6 +154,7 @@ pub async fn complete(
     client: &reqwest::Client,
     cfg: &LlmConfig,
     key: &str,
+    base_url_override: Option<&str>,
     req: ChatRequest,
 ) -> Result<LlmOutcome, LlmError> {
     if key.is_empty() {
@@ -122,7 +167,7 @@ pub async fn complete(
         return Err(LlmError::TooLarge);
     }
 
-    let url = cfg.completions_url();
+    let url = cfg.resolve_completions_url(base_url_override)?;
     let model = req.model.unwrap_or_else(|| cfg.default_model.clone());
     let has_schema = req.extra.contains_key("response_format");
 

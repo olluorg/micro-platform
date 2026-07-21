@@ -14,6 +14,9 @@ use crate::state::AppState;
 /// Header carrying the caller's own provider API key (BYO). A dedicated header
 /// avoids clashing with the platform's session `Authorization` bearer.
 const PROVIDER_KEY_HEADER: &str = "x-provider-key";
+/// Optional header letting the caller pick the upstream provider's base URL
+/// (e.g. OpenAI vs OpenRouter vs a gateway). Validated against the allowlist.
+const PROVIDER_BASE_URL_HEADER: &str = "x-provider-base-url";
 
 pub fn router() -> Router<AppState> {
     Router::new().route("/llm", post(llm))
@@ -42,10 +45,16 @@ async fn llm(
         None => return Err(ApiError::Unauthorized("missing provider API key".into())),
     };
 
+    let base_url = headers
+        .get(PROVIDER_BASE_URL_HEADER)
+        .and_then(|v| v.to_str().ok())
+        .map(str::trim)
+        .filter(|s| !s.is_empty());
+
     let req: ChatRequest = serde_json::from_slice(&body)
         .map_err(|e| ApiError::BadRequest(format!("invalid request body: {e}")))?;
 
-    let outcome = complete(&http, &cfg, &key, req).await.map_err(map_err)?;
+    let outcome = complete(&http, &cfg, &key, base_url, req).await.map_err(map_err)?;
 
     let status = StatusCode::from_u16(outcome.status).unwrap_or(StatusCode::BAD_GATEWAY);
     Ok((status, [(header::CONTENT_TYPE, "application/json")], outcome.body).into_response())
@@ -54,6 +63,7 @@ async fn llm(
 fn map_err(e: LlmError) -> ApiError {
     match e {
         LlmError::MissingKey => ApiError::Unauthorized("missing provider API key".into()),
+        LlmError::ForbiddenBaseUrl => ApiError::BadRequest("provider base URL is not allowed".into()),
         LlmError::NoMessages => ApiError::BadRequest("messages must not be empty".into()),
         LlmError::TooLarge => ApiError::BadRequest("messages too large".into()),
         LlmError::Upstream(err) => ApiError::Internal(format!("upstream request failed: {err}")),

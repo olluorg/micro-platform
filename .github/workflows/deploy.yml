@@ -83,12 +83,13 @@ jobs:
           OPENROUTER_BASE_URL: ${{ vars.OPENROUTER_BASE_URL }}
           OPENROUTER_MODEL: ${{ vars.OPENROUTER_MODEL }}
           OPENROUTER_REFERER: ${{ vars.OPENROUTER_REFERER }}
+          LLM_ALLOWED_BASE_URLS: ${{ vars.LLM_ALLOWED_BASE_URLS }}
         with:
           host: ${{ secrets.VPS_HOST }}
           username: ${{ secrets.VPS_USER }}
           password: ${{ secrets.VPS_PASSWORD }}
           port: ${{ secrets.VPS_PORT }}
-          envs: IMAGE,GHCR_USER,GHCR_TOKEN,GOOGLE_AUDIENCES,RUST_LOG,HOST_PORT,OPENROUTER_BASE_URL,OPENROUTER_MODEL,OPENROUTER_REFERER
+          envs: IMAGE,GHCR_USER,GHCR_TOKEN,GOOGLE_AUDIENCES,RUST_LOG,HOST_PORT,OPENROUTER_BASE_URL,OPENROUTER_MODEL,OPENROUTER_REFERER,LLM_ALLOWED_BASE_URLS
           script: |
             set -euo pipefail
             mkdir -p /opt/ollu
@@ -103,6 +104,7 @@ jobs:
             OPENROUTER_BASE_URL=${OPENROUTER_BASE_URL}
             OPENROUTER_MODEL=${OPENROUTER_MODEL}
             OPENROUTER_REFERER=${OPENROUTER_REFERER}
+            LLM_ALLOWED_BASE_URLS=${LLM_ALLOWED_BASE_URLS}
             EOF
             echo "${GHCR_TOKEN}" | docker login ghcr.io -u "${GHCR_USER}" --password-stdin
             docker compose --env-file .env pull
